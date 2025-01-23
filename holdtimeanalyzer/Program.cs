@@ -9,6 +9,7 @@ using HoldTimes = System.Collections.Generic.Dictionary<int, int>;
 
 public class Program
 {
+  
   /// <summary>
   /// The one-based index of the currently processed replay.
   /// </summary>
@@ -36,12 +37,19 @@ public class Program
     // go through all replay files in the replays folder and process them.
     string[] replayFiles = Directory.GetFiles("replays", "*.osr");
     _total = replayFiles.Length;
-    foreach (string replayFile in replayFiles)
+    string playerName = "";
+    Tuple<HoldTimes, HoldTimes> holdTimesTotal = new Tuple<HoldTimes, HoldTimes>(new HoldTimes, new HoldTimes);
+      foreach (string replayFile in replayFiles)
     {
       try
       {
         _current++;
-        ProcessReplayFile(replayFile);
+        Tuple<HoldTimes, HoldTimes> temp = ProcessReplayFile(replayFile);
+        holdTimesTotal.Item1 += temp.Item1;
+        holdTimesTotal.Item2 += temp.Item2;
+        if (playerName == "") {
+          playerName = ReplayDecoder.Decode(replayFile).PlayerName;
+        }
       }
       catch (Exception ex)
       {
@@ -50,7 +58,7 @@ public class Program
         File.WriteAllText($"output\\error_{Path.GetFileNameWithoutExtension(replayFile)}.txt", $"{ex.Message}\n{ex.StackTrace}");
       }
     }
-
+    pl(holdTimesTotal, playerName);
     Console.WriteLine();
     Console.WriteLine("Done.");
     Console.ReadKey();
@@ -60,7 +68,7 @@ public class Program
   /// Processes the specified replay file and generates a plot for the hold times.
   /// </summary>
   /// <param name="replayFile">The replay file.</param>
-  private static void ProcessReplayFile(string replayFile)
+  private static Optional<Tuple<HoldTimes, HoldTimes>> ProcessReplayFile(string replayFile)
   {
     // Calculate the hold times for the replay and filter them to only include hold times below 100ms.
     Replay replay = ReplayDecoder.Decode(replayFile);
@@ -74,12 +82,20 @@ public class Program
       Write("Skipped", $"{Path.GetFileName(replayFile)} (no significant hold times found)", ConsoleColor.Yellow);
       return;
     }
-
+    return Tuple.create(filteredKey1, filteredKey2);
+    // Edited to a Tuple so that the values can be conserved
+  }
+private static void pl(Tuple<HoldTimes, HoldTimes> t, string playerName)
+{  
+    filteredKey1 = t.Item1;
+    filteredKey2 = t.Item2;
     // Setup the plot.
     Plot plot = new Plot();
-    string mods = string.Join(", ", Enum.GetValues<Mods>().Where(m => replay.Mods.HasFlag(m) && m > Mods.None).Select(m => m.ToString()));
+    /* string mods = string.Join(", ", Enum.GetValues<Mods>().Where(m => replay.Mods.HasFlag(m) && m > Mods.None).Select(m => m.ToString()));
     string id = $"{(replay.OnlineId == 0 ? "Offline" : replay.OnlineId)}";
-    plot.Title($"({id}) {replay.PlayerName} at {replay.ReplayTimestamp:dd/MM/yyyy HH:mm} +{mods} ({replay.ReplayLength}ms)");
+    plot.Title($"({id}) {replay.PlayerName} at {replay.ReplayTimestamp:dd/MM/yyyy HH:mm} +{mods} ({replay.ReplayLength}ms)"); */
+  // Above lines currently edited away as I don't yet know whether I'll make use of them
+    plot.Title($"{playerName}");
     plot.ScaleFactor = 2;
     plot.Axes.Left.Label.Text = "Amount of Occurrences";
     plot.Axes.Bottom.Label.Text = "Milliseconds";
